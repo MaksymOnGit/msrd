@@ -1,0 +1,92 @@
+services:
+  mssql:
+    image: "mcr.microsoft.com/mssql/server:2019-CU18-ubuntu-20.04"
+    environment:
+      - ACCEPT_EULA=Y
+      - SA_PASSWORD=P@ssw0rd!
+    volumes:
+      - mssql-volume:/var/opt/mssql
+    restart: always
+    healthcheck:
+      test: /opt/mssql-tools/bin/sqlcmd -S localhost -U sa -P "$$SA_PASSWORD" -Q "SELECT 1" || exit 1
+      interval: 5s
+      timeout: 3s
+      retries: 5
+      start_period: 30s
+      
+  postgres:
+    image: debezium/postgres:15-alpine
+    hostname: msrdstocks-db
+    environment:
+      POSTGRES_PASSWORD: "P@ssw0rd!"
+      POSTGRES_USER: "sa"
+      POSTGRES_DB: "MsrdStocks"
+    volumes:
+    - postgres-volume:/var/lib/postgresql/data
+    restart: always
+    command:
+      - "postgres"
+      - "-c"
+      - "wal_level=logical"
+    healthcheck:
+      test: pg_isready -U sa -d MsrdStocks
+      interval: 5s
+      timeout: 3s
+      retries: 3
+      start_period: 30s
+      
+  sqlpad:
+    image: sqlpad/sqlpad:6.11
+    profiles: 
+      - tools
+    hostname: 'sqlpad'
+    ports:
+      - "8082:3000"
+    environment:
+      SQLPAD_ADMIN: 'sa'
+      SQLPAD_ADMIN_PASSWORD: 'P@ssw0rd!'
+      SQLPAD_APP_LOG_LEVEL: info
+      SQLPAD_WEB_LOG_LEVEL: warn
+      SQLPAD_CONNECTIONS__msrdidentitydb__name: MSRD Identity database
+      SQLPAD_CONNECTIONS__msrdidentitydb__driver: sqlserver
+      SQLPAD_CONNECTIONS__msrdidentitydb__host: mssql
+      SQLPAD_CONNECTIONS__msrdidentitydb__database: MsrdAuth
+      SQLPAD_CONNECTIONS__msrdidentitydb__username: sa
+      SQLPAD_CONNECTIONS__msrdidentitydb__password: P@ssw0rd!
+      
+      SQLPAD_CONNECTIONS__msrdidentitydb__name: MSRD Stocks database
+      SQLPAD_CONNECTIONS__msrdidentitydb__driver: postgres
+      SQLPAD_CONNECTIONS__msrdidentitydb__host: postgres
+      SQLPAD_CONNECTIONS__msrdidentitydb__database: MsrdStocks
+      SQLPAD_CONNECTIONS__msrdidentitydb__username: sa
+      SQLPAD_CONNECTIONS__msrdidentitydb__password: P@ssw0rd!
+    volumes:
+      - sqlpad-volume:/var/lib/sqlpad
+    logging:
+      options:
+        max-size: "12m"
+        max-file: "5"
+      driver: json-file
+      
+  dbeaver:
+    image: dbeaver/cloudbeaver:latest
+    profiles: 
+      - tools
+    ports:
+      - "8086:8978"
+    environment:
+      CB_ADMIN_NAME: 'sa'
+      CB_ADMIN_PASSWORD: 'P@ssw0rd!'
+    volumes:
+      - dbeaver-volume:/opt/cloudbeaver/workspace
+    logging:
+      options:
+        max-size: "12m"
+        max-file: "5"
+      driver: json-file
+      
+volumes:
+  mssql-volume:
+  postgres-volume:
+  sqlpad-volume:
+  dbeaver-volume:

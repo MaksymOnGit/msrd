@@ -1,0 +1,22 @@
+{
+  "name": "msrddocuments-mongo-documents-source",
+  "config": {
+	"connector.class": "com.mongodb.kafka.connect.MongoSourceConnector",
+	"output.schema.infer.value": "false",
+	"change.stream.full.document": "updateLookup",
+	"publish.full.document.only": "false",
+	"output.format.value": "schema",
+	"collection": "documents",
+	"output.format.key": "schema",
+	"value.converter.schema.registry.url": "http://schemaregistry0:8085",
+	"database": "MsrdDocuments",
+	"output.schema.value": "{\"type\":\"record\",\"name\":\"default\",\"fields\":[{\"name\":\"_id\",\"type\":[\"null\",{\"type\":\"record\",\"name\":\"_id\",\"fields\":[{\"name\":\"_data\",\"type\":[\"null\",\"string\"],\"default\":null}],\"connect.name\":\"_id\"}],\"default\":null},{\"name\":\"clusterTime\",\"type\":[\"null\",{\"type\":\"long\",\"connect.version\":1,\"connect.name\":\"org.apache.kafka.connect.data.Timestamp\",\"logicalType\":\"timestamp-millis\"}],\"default\":null},{\"name\":\"documentKey\",\"type\":[\"null\",{\"type\":\"record\",\"name\":\"documentKey\",\"fields\":[{\"name\":\"_id\",\"type\":[\"null\",{\"type\":\"string\"}],\"default\":null}],\"connect.name\":\"documentKey\"}],\"default\":null},{\"name\":\"fullDocument\",\"type\":[\"null\",{\"type\":\"record\",\"name\":\"fullDocument\",\"fields\":[{\"name\":\"_id\",\"type\":[\"null\",\"string\"],\"default\":null},{\"name\":\"__v\",\"type\":[\"null\",\"int\"],\"default\":null},{\"name\":\"date\",\"type\":[\"null\",{\"type\":\"long\",\"connect.version\":1,\"connect.name\":\"org.apache.kafka.connect.data.Timestamp\",\"logicalType\":\"timestamp-millis\"}],\"default\":null},{\"name\":\"direction\",\"type\":[\"null\",\"int\"],\"default\":null},{\"name\":\"items\",\"type\":[\"null\",{\"type\":\"array\",\"items\":[\"null\",{\"type\":\"record\",\"name\":\"fullDocument_items\",\"fields\":[{\"name\":\"_id\",\"type\":[\"null\",\"string\"],\"default\":null},{\"name\":\"price\",\"type\":[\"null\",\"double\"],\"default\":null},{\"name\":\"productId\",\"type\":[\"null\",\"string\"],\"default\":null},{\"name\":\"productName\",\"type\":[\"null\",\"string\"],\"default\":null},{\"name\":\"quantitativeUnit\",\"type\":[\"null\",\"string\"],\"default\":null},{\"name\":\"quantity\",\"type\":[\"null\",\"double\"],\"default\":null}],\"connect.name\":\"fullDocument_items\"}],\"connect.name\":\"fullDocument_items\"}],\"default\":null},{\"name\":\"owner\",\"type\":[\"null\",\"string\"],\"default\":null},{\"name\":\"partnerName\",\"type\":[\"null\",\"string\"],\"default\":null},{\"name\":\"price\",\"type\":[\"null\",\"double\"],\"default\":null},{\"name\":\"status\",\"type\":[\"null\",\"string\"],\"default\":null},{\"name\":\"validateStockAvailability\",\"type\":[\"null\",\"boolean\"],\"default\":null}],\"connect.name\":\"fullDocument\"}],\"default\":null},{\"name\":\"ns\",\"type\":[\"null\",{\"type\":\"record\",\"name\":\"ns\",\"fields\":[{\"name\":\"coll\",\"type\":[\"null\",\"string\"],\"default\":null},{\"name\":\"db\",\"type\":[\"null\",\"string\"],\"default\":null}],\"connect.name\":\"ns\"}],\"default\":null},{\"name\":\"operationType\",\"type\":[\"null\",\"string\"],\"default\":null}],\"connect.name\":\"default\"}",
+	"output.schema.key": "{\"type\":\"record\",\"name\":\"keySchema\",\"fields\":[{\"name\":\"_id\",\"type\":\"string\"}],\"connect.name\":\"keySchema\"}",
+	"connection.uri": "mongodb://mongo",
+	"name": "msrddocuments-mongo-documents-source",
+	"copy.existing": "true",
+	"value.converter": "io.confluent.connect.avro.AvroConverter",
+	"key.converter.schema.registry.url": "http://schemaregistry0:8085",
+	"key.converter": "io.confluent.connect.avro.AvroConverter"
+  }
+}

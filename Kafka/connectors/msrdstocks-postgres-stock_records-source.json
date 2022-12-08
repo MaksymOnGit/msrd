@@ -1,0 +1,25 @@
+{
+  "name": "msrdstocks-postgres-stock_records-source",
+  "config": {
+	"connector.class": "io.debezium.connector.postgresql.PostgresConnector",
+	"name": "msrdstocks-postgres-stock_records-source",
+	"database.hostname": "postgres",
+	"database.port": "5432",
+	"database.user": "sa",
+	"database.password": "P@ssw0rd!",
+	"database.dbname": "MsrdStocks",
+	"database.server.name": "MsrdStocks",
+	"table.include.list":"public.stock_records",
+	"plugin.name": "decoderbufs",
+	"output.data.format": "AVRO",
+	"output.key.format": "AVRO",
+	"tasks.max": "1",
+	"key.converter": "io.confluent.connect.avro.AvroConverter",
+	"value.converter": "io.confluent.connect.avro.AvroConverter",
+	"key.converter.schema.registry.url": "http://schemaregistry0:8085",
+	"value.converter.schema.registry.url": "http://schemaregistry0:8085",
+	"key.converter.schemas.enable": "true",
+	"value.converter.schemas.enable": "true",
+	"slot.name": "kafka_connector_stock_records"
+	}
+}

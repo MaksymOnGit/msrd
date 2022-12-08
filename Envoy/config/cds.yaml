@@ -1,0 +1,79 @@
+resources:
+- "@type": type.googleapis.com/envoy.config.cluster.v3.Cluster
+  name: identity
+  type: STRICT_DNS
+  load_assignment:
+    cluster_name: identity
+    endpoints:
+    - lb_endpoints:
+      - endpoint:
+          address:
+            socket_address:
+              address: msrdidentity
+              port_value: 80
+             
+- "@type": type.googleapis.com/envoy.config.cluster.v3.Cluster
+  name: products
+  type: STRICT_DNS
+  load_assignment:
+    cluster_name: products
+    endpoints:
+    - lb_endpoints:
+      - endpoint:
+          address:
+            socket_address:
+              address: msrdproducts
+              port_value: 80
+              
+- "@type": type.googleapis.com/envoy.config.cluster.v3.Cluster
+  name: frontend
+  type: STRICT_DNS
+  load_assignment:
+    cluster_name: frontend
+    endpoints:
+    - lb_endpoints:
+      - endpoint:
+          address:
+            socket_address:
+              address: msrdfrontend
+              port_value: 80
+              
+- "@type": type.googleapis.com/envoy.config.cluster.v3.Cluster
+  name: stocks
+  type: STRICT_DNS
+  load_assignment:
+    cluster_name: stocks
+    endpoints:
+    - lb_endpoints:
+      - endpoint:
+          address:
+            socket_address:
+              address: msrdstocks
+              port_value: 80
+              
+- "@type": type.googleapis.com/envoy.config.cluster.v3.Cluster
+  name: documents
+  type: STRICT_DNS
+  load_assignment:
+    cluster_name: documents
+    endpoints:
+    - lb_endpoints:
+      - endpoint:
+          address:
+            socket_address:
+              address: msrddocuments
+              port_value: 80
+              
+- "@type": type.googleapis.com/envoy.config.cluster.v3.Cluster
+  name: meilisearch
+  type: STRICT_DNS
+  load_assignment:
+    cluster_name: meilisearch
+    endpoints:
+    - lb_endpoints:
+      - endpoint:
+          address:
+            socket_address:
+              address: meilisearch
+              port_value: 7700
+              

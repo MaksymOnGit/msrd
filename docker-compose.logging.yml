@@ -1,0 +1,109 @@
+services:
+  apigw:
+    logging:
+      options:
+        max-size: "12m"
+        max-file: "5"
+      driver: json-file
+  msrdidentity:
+    logging:
+      options:
+        max-size: "12m"
+        max-file: "5"
+      driver: json-file
+  msrdfrontend:
+    logging:
+      options:
+        max-size: "12m"
+        max-file: "5"
+      driver: json-file
+  msrdproducts:
+    logging:
+      options:
+        max-size: "12m"
+        max-file: "5"
+      driver: json-file
+  msrdproducts-consumer:
+    logging:
+      options:
+        max-size: "12m"
+        max-file: "5"
+      driver: json-file
+  msrdstocks:
+    logging:
+      options:
+        max-size: "12m"
+        max-file: "5"
+      driver: json-file
+  msrdstocks-product-consumer:
+    logging:
+      options:
+        max-size: "12m"
+        max-file: "5"
+      driver: json-file
+  msrdstocks-document-consumer:
+    logging:
+      options:
+        max-size: "12m"
+        max-file: "5"
+      driver: json-file
+  mssql:
+    logging:
+      options:
+        max-size: "12m"
+        max-file: "5"
+      driver: json-file
+  postgres:
+    logging:
+      options:
+        max-size: "12m"
+        max-file: "5"
+      driver: json-file
+  mongo:
+    logging:
+      options:
+        max-size: "12m"
+        max-file: "5"
+      driver: json-file
+  kafka0:
+    logging:
+      options:
+        max-size: "12m"
+        max-file: "5"
+      driver: json-file
+  zookeeper:
+    logging:
+      options:
+        max-size: "12m"
+        max-file: "5"
+      driver: json-file
+  schemaregistry0:
+    logging:
+      options:
+        max-size: "12m"
+        max-file: "5"
+      driver: json-file
+  kafka-connect0:
+    logging:
+      options:
+        max-size: "12m"
+        max-file: "5"
+      driver: json-file
+  meilisearch:
+    logging:
+      options:
+        max-size: "12m"
+        max-file: "5"
+      driver: json-file
+  msrdmeili-product-consumer:
+    logging:
+      options:
+        max-size: "12m"
+        max-file: "5"
+      driver: json-file
+  msrdmeili-document-consumer:
+    logging:
+      options:
+        max-size: "12m"
+        max-file: "5"
+      driver: json-file

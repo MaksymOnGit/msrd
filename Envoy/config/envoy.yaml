@@ -1,0 +1,11 @@
+node:
+  cluster: msrd-cluster
+  id: msrd
+      
+dynamic_resources:
+  cds_config:
+    path_config_source:
+        path: /etc/envoy/cds.yaml
+  lds_config:
+    path_config_source:
+        path: /etc/envoy/lds.yaml

@@ -1,0 +1,25 @@
+services:
+  msrdidentity:
+    build: ./MSRD.Identity/
+  msrdfrontend:
+    build: ./MSRD.Frontend/
+  msrdproducts:
+    build: ./MSRD.Products/
+  msrdproducts-consumer:
+    build: ./MSRD.Products/
+  msrdstocks:
+    build: ./MSRD.Stocks/
+  msrdstocks-migrator:
+    build: ./MSRD.Stocks/
+  msrdstocks-product-consumer:
+    build: ./MSRD.Stocks/
+  msrdstocks-document-consumer:
+    build: ./MSRD.Stocks/
+  msrddocuments:
+    build: ./MSRD.Documents/
+  msrddocuments-consumer:
+    build: ./MSRD.Products/
+  msrdmeili-product-consumer:
+    build: ./MSRD.Meili/
+  msrdmeili-document-consumer:
+    build: ./MSRD.Meili/
