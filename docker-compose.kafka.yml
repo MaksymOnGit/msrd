@@ -142,8 +142,8 @@ services:
       echo -e 'Creating kafka topics'
       kafka-topics --bootstrap-server kafka0:29092 --create --if-not-exists --topic MsrdDocuments.documents --replication-factor 1 --partitions 1
       kafka-topics --bootstrap-server kafka0:29092 --create --if-not-exists --topic MsrdProducts.products --replication-factor 1 --partitions 1
-      kafka-topics --bootstrap-server kafka0:29092 --create --if-not-exists --topic MsrdStocs.public.document_statuses --replication-factor 1 --partitions 1
-      kafka-topics --bootstrap-server kafka0:29092 --create --if-not-exists --topic MsrdStocs.public.stock_records --replication-factor 1 --partitions 1
+      kafka-topics --bootstrap-server kafka0:29092 --create --if-not-exists --topic MsrdStocks.public.document_statuses --replication-factor 1 --partitions 1
+      kafka-topics --bootstrap-server kafka0:29092 --create --if-not-exists --topic MsrdStocks.public.stock_records --replication-factor 1 --partitions 1
 
       echo -e 'Successfully created the following topics:'
       kafka-topics --bootstrap-server kafka0:29092 --list
