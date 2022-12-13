@@ -43,7 +43,7 @@ services:
     ports:
       - "8082:3000"
     environment:
-      SQLPAD_AUTH_DISABLED: true
+      SQLPAD_AUTH_DISABLED: 1
       SQLPAD_APP_LOG_LEVEL: info
       SQLPAD_WEB_LOG_LEVEL: warn
       SQLPAD_CONNECTIONS__msrdidentitydb__name: MSRD Identity database
