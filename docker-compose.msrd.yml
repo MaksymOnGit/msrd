@@ -275,7 +275,7 @@ services:
     image: ellerbrock/alpine-bash-curl-ssl
     volumes:
       - ./Kafka/connectors:/connectors
-    command: bash -c '/connectors/start.sh'
+    command: bash -c '/bin/bash /connectors/start.sh'
     depends_on:
       kafka-connect0:
         condition: service_healthy
