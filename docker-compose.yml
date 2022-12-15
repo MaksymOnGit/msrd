@@ -1,0 +1,682 @@
+version: '3.7'
+
+services:
+  apigw:
+    image: "envoyproxy/envoy:v1.23-latest"
+    volumes:
+      - type: bind
+        source: ./Envoy/config
+        target: /etc/envoy
+    ports:
+    - "80:80"
+    restart: always
+    depends_on:
+      msrdstocks:
+        condition: service_started
+      msrdidentity:
+        condition: service_started
+      msrdfrontend:
+        condition: service_started
+      msrdproducts:
+        condition: service_started
+      msrddocuments:
+        condition: service_started
+    logging:
+      options:
+        max-size: "12m"
+        max-file: "5"
+      driver: json-file
+
+  msrdidentity:
+    image: ${DOCKER_REGISTRY-}msrdidentity
+    build: https://github.com/MaksymOnGit/msrd-identity.git
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_URLS=http://+:80
+      - PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+      - DOTNET_RUNNING_IN_CONTAINER=1
+      - CONNECTIONSTRINGS__REPOSITORY=Server=mssql,1433;Database=MsrdAuth;User Id=sa;Password=P@ssw0rd!;
+      - LOGGING__LOGLEVEL__DEFAULT=error
+      
+      - AdminUser__Email=admin@admin.admin
+      - AdminUser__Password=P@ssw0rd!
+      
+      - SmtpSettings__SmtpLogin=${SMTP_LOGIN}
+      - SmtpSettings__SmtpPassword=${SMTP_PASSWORD}
+      - SmtpSettings__SmtpHost=${SMTP_HOST}
+      - SmtpSettings__SmtpPort=${SMTP_PORT}
+      - SmtpSettings__SmtpSecureSocketOption=${SMTP_SECURESOCKETOPTION}
+      - SmtpSettings__SmtpSenderAddress=${SMTP_SENDERADDRESS}
+      - SmtpSettings__SmtpSenderName=${SMTP_SENDERNAME}
+      
+      - Templates__ConfirmEmailEmailTemplatePath=./HtmlTemplates/ConfirmEmailEmailTemplate.html
+      - Templates__ConfirmEmailUriTemplate=http://localhost/auth/registration?email={0}&token={1}
+    restart: always
+    depends_on:
+      mssql:
+        condition: service_healthy
+    logging:
+      options:
+        max-size: "12m"
+        max-file: "5"
+      driver: json-file
+    
+  msrdfrontend:
+    image: ${DOCKER_REGISTRY-}msrdfrontend
+    build: https://github.com/MaksymOnGit/msrd-frontend.git
+    environment:
+      - API_ROOT=http://localhost/api
+      - JWT_ISSUER=http://localhost/api/identity
+    restart: always
+    logging:
+      options:
+        max-size: "12m"
+        max-file: "5"
+      driver: json-file
+    
+  msrdproducts:
+    image: ${DOCKER_REGISTRY-}msrdproducts
+    build: https://github.com/MaksymOnGit/msrd-products.git
+    environment:
+      - ENV=prod
+      - HOST=0.0.0.0:80
+      - JWSK_URL=http://msrdidentity/.well-known/jwks
+      - DB_CONNECTION_STRING=mongodb://mongo:27017
+      - DATABASE=MsrdProducts
+    restart: always
+    depends_on:
+      mongo:
+        condition: service_healthy
+      msrdidentity:
+        condition: service_started
+    logging:
+      options:
+        max-size: "12m"
+        max-file: "5"
+      driver: json-file
+        
+  msrdproducts-consumer:
+    image: ${DOCKER_REGISTRY-}msrdproducts
+    build: https://github.com/MaksymOnGit/msrd-products.git
+    environment:
+      - ENV=prod
+      - HOST=0.0.0.0:80
+      - JWSK_URL=http://msrdidentity/.well-known/jwks
+      - DB_CONNECTION_STRING=mongodb://mongo:27017
+      - DATABASE=MsrdProducts
+      - APP_MODE=STOCKS_CONSUMER
+      - KAFKA_BOOTSTRAP_SERVERS=kafka0:29092
+      - KAFKA_CONSUMER_GROUP=msrd.productsconsumer
+      - KAFKA_SCHEMAREGISTRY_CLIENT=http://schemaregistry0:8085
+    restart: always
+    depends_on:
+      mongo:
+        condition: service_healthy
+      kafka0:
+        condition: service_healthy
+      schemaregistry0:
+        condition: service_healthy
+      init-kafka:
+        condition: service_completed_successfully
+    logging:
+      options:
+        max-size: "12m"
+        max-file: "5"
+      driver: json-file
+        
+  msrdstocks:
+    build: https://github.com/MaksymOnGit/msrd-stocks.git #./MSRD.Stocks/
+    image: ${DOCKER_REGISTRY-}msrdstocks
+    environment:
+      MSRDSTOCKS_HOST: 0.0.0.0
+      MSRDSTOCKS_PORT: 80
+      MSRDSTOCKS_DB_HOST: postgres
+      MSRDSTOCKS_DB_PORT: 5432
+      MSRDSTOCKS_DB_USER: sa
+      MSRDSTOCKS_DB_PASS: P@ssw0rd!
+      MSRDSTOCKS_DB_BASE: MsrdStocks
+      MSRDSTOCKS_DB_ECHO: 1
+      MSRDSTOCKS_KAFKA_BOOTSTRAP_SERVERS: '["kafka0:29092"]'
+    restart: always
+    depends_on:
+      postgres:
+        condition: service_healthy
+      msrdstocks-migrator:
+        condition: service_completed_successfully
+    logging:
+      options:
+        max-size: "12m"
+        max-file: "5"
+      driver: json-file
+
+  msrdstocks-migrator:
+    build: https://github.com/MaksymOnGit/msrd-stocks.git
+    image: msrdstocks
+    restart: "no"
+    command: alembic upgrade head
+    environment:
+      MSRDSTOCKS_DB_HOST: postgres
+      MSRDSTOCKS_DB_PORT: 5432
+      MSRDSTOCKS_DB_USER: sa
+      MSRDSTOCKS_DB_PASS: P@ssw0rd!
+      MSRDSTOCKS_DB_BASE: MsrdStocks
+      MSRDSTOCKS_DB_ECHO: 1
+    depends_on:
+      postgres:
+        condition: service_healthy
+    logging:
+      options:
+        max-size: "12m"
+        max-file: "5"
+      driver: json-file
+
+  msrdstocks-product-consumer:
+    build: https://github.com/MaksymOnGit/msrd-stocks.git #./MSRD.Stocks/
+    image: ${DOCKER_REGISTRY-}msrdstocks
+    environment:
+      MSRDSTOCKS_HOST: 0.0.0.0
+      MSRDSTOCKS_PORT: 80
+      MSRDSTOCKS_DB_HOST: postgres
+      MSRDSTOCKS_DB_PORT: 5432
+      MSRDSTOCKS_DB_USER: sa
+      MSRDSTOCKS_DB_PASS: P@ssw0rd!
+      MSRDSTOCKS_DB_BASE: MsrdStocks
+      MSRDSTOCKS_DB_ECHO: 1
+      MSRDSTOCKS_KAFKA_BOOTSTRAP_SERVERS: '["kafka0:29092"]'
+      MSRDSTOCKS_APP_MODE: PRODUCT_CONSUMER
+      MSRDSTOCKS_KAFKA_SCHEMAREGISTRY_CLIENT: http://schemaregistry0:8085
+    restart: always
+    depends_on:
+      kafka0:
+        condition: service_healthy
+      schemaregistry0:
+        condition: service_healthy
+      init-kafka:
+        condition: service_completed_successfully
+      postgres:
+        condition: service_healthy
+      msrdstocks-migrator:
+        condition: service_completed_successfully
+    logging:
+      options:
+        max-size: "12m"
+        max-file: "5"
+      driver: json-file
+        
+  msrdstocks-document-consumer:
+    build: https://github.com/MaksymOnGit/msrd-stocks.git #./MSRD.Stocks/
+    image: ${DOCKER_REGISTRY-}msrdstocks
+    environment:
+      MSRDSTOCKS_HOST: 0.0.0.0
+      MSRDSTOCKS_PORT: 80
+      MSRDSTOCKS_DB_HOST: postgres
+      MSRDSTOCKS_DB_PORT: 5432
+      MSRDSTOCKS_DB_USER: sa
+      MSRDSTOCKS_DB_PASS: P@ssw0rd!
+      MSRDSTOCKS_DB_BASE: MsrdStocks
+      MSRDSTOCKS_DB_ECHO: 1
+      MSRDSTOCKS_KAFKA_BOOTSTRAP_SERVERS: '["kafka0:29092"]'
+      MSRDSTOCKS_APP_MODE: DOCUMENT_CONSUMER
+      MSRDSTOCKS_KAFKA_SCHEMAREGISTRY_CLIENT: http://schemaregistry0:8085
+    restart: always
+    depends_on:
+      kafka0:
+        condition: service_healthy
+      schemaregistry0:
+        condition: service_healthy
+      init-kafka:
+        condition: service_completed_successfully
+      postgres:
+        condition: service_healthy
+      msrdstocks-migrator:
+        condition: service_completed_successfully
+    logging:
+      options:
+        max-size: "12m"
+        max-file: "5"
+      driver: json-file
+      
+  msrddocuments:
+    build: https://github.com/MaksymOnGit/msrd-documents.git #./MSRD.Documents/
+    image: ${DOCKER_REGISTRY-}msrddocuments
+    environment:
+      PORT: 80
+      NODE_ENV: production
+      MONGO_URL: mongodb://mongo:27017/MsrdDocuments
+      JWSK_URL: http://msrdidentity/.well-known/jwks
+    restart: always
+    depends_on:
+      mongo:
+        condition: service_healthy
+    logging:
+      options:
+        max-size: "12m"
+        max-file: "5"
+      driver: json-file
+        
+  msrddocuments-consumer:
+    image: ${DOCKER_REGISTRY-}msrdproducts
+    build: https://github.com/MaksymOnGit/msrd-products.git
+    environment:
+      - ENV=prod
+      - HOST=0.0.0.0:80
+      - JWSK_URL=http://msrdidentity/.well-known/jwks
+      - DB_CONNECTION_STRING=mongodb://mongo:27017
+      - DATABASE=MsrdDocuments
+      - APP_MODE=DOCUMENT_STATUS_CONSUMER
+      - KAFKA_BOOTSTRAP_SERVERS=kafka0:29092
+      - KAFKA_CONSUMER_GROUP=msrd.documentsstatussconsumer
+      - KAFKA_SCHEMAREGISTRY_CLIENT=http://schemaregistry0:8085
+    restart: always
+    depends_on:
+      kafka0:
+        condition: service_healthy
+      schemaregistry0:
+        condition: service_healthy
+      init-kafka:
+        condition: service_completed_successfully
+      postgres:
+        condition: service_healthy
+      msrdstocks-migrator:
+        condition: service_completed_successfully
+    logging:
+      options:
+        max-size: "12m"
+        max-file: "5"
+      driver: json-file
+        
+  msrdmeili-product-consumer:
+    build: https://github.com/MaksymOnGit/msrd-meili.git #./MSRD.Meili/
+    image: ${DOCKER_REGISTRY-}msrdmeili
+    environment:
+      MSRDMEILI_KAFKA_BOOTSTRAP_SERVERS: '["kafka0:29092"]'
+      MSRDMEILI_APP_MODE: PRODUCT_CONSUMER
+      MSRDMEILI_KAFKA_SCHEMAREGISTRY_CLIENT: http://schemaregistry0:8085
+      MSRDMEILI_KAFKA_CONSUMER_GROUP: msrd.meilisearchconsumer
+      MSRDMEILI_MEILISEARCH_URL: http://meilisearch:7700
+    restart: always
+    depends_on:
+      kafka0:
+        condition: service_healthy
+      schemaregistry0:
+        condition: service_healthy
+      init-kafka:
+        condition: service_completed_successfully
+      meilisearch:
+        condition: service_healthy
+    logging:
+      options:
+        max-size: "12m"
+        max-file: "5"
+      driver: json-file
+        
+  msrdmeili-document-consumer:
+    build: https://github.com/MaksymOnGit/msrd-meili.git #./MSRD.Meili/
+    image: ${DOCKER_REGISTRY-}msrdmeili
+    environment:
+      MSRDMEILI_KAFKA_BOOTSTRAP_SERVERS: '["kafka0:29092"]'
+      MSRDMEILI_APP_MODE: DOCUMENT_CONSUMER
+      MSRDMEILI_KAFKA_SCHEMAREGISTRY_CLIENT: http://schemaregistry0:8085
+      MSRDMEILI_KAFKA_CONSUMER_GROUP: msrd.meilisearchconsumer
+      MSRDMEILI_MEILISEARCH_URL: http://meilisearch:7700
+    restart: always
+    depends_on:
+      kafka0:
+        condition: service_healthy
+      schemaregistry0:
+        condition: service_healthy
+      init-kafka:
+        condition: service_completed_successfully
+      meilisearch:
+        condition: service_healthy
+    logging:
+      options:
+        max-size: "12m"
+        max-file: "5"
+      driver: json-file
+
+  create-connectors:
+    image: ellerbrock/alpine-bash-curl-ssl
+    volumes:
+      - ./Kafka/connectors:/connectors
+    command: bash -c '/bin/bash /connectors/start.sh'
+    depends_on:
+      kafka-connect0:
+        condition: service_healthy
+      schemaregistry0:
+        condition: service_healthy
+      init-kafka:
+        condition: service_completed_successfully
+      postgres:
+        condition: service_healthy
+      msrdstocks-migrator:
+        condition: service_completed_successfully
+      mongo:
+        condition: service_healthy
+    logging:
+      options:
+        max-size: "12m"
+        max-file: "5"
+      driver: json-file
+
+  init-kafka:
+    image: confluentinc/cp-kafka:7.2.1
+    entrypoint: [ '/bin/sh', '-c' ]
+    command: |
+      "
+      # blocks until kafka is reachable
+      kafka-topics --bootstrap-server kafka0:29092 --list
+
+      echo -e 'Creating kafka topics'
+      kafka-topics --bootstrap-server kafka0:29092 --create --if-not-exists --topic MsrdDocuments.documents --replication-factor 1 --partitions 10
+      kafka-topics --bootstrap-server kafka0:29092 --create --if-not-exists --topic MsrdProducts.products --replication-factor 1 --partitions 1
+      kafka-topics --bootstrap-server kafka0:29092 --create --if-not-exists --topic MsrdStocks.public.document_statuses --replication-factor 1 --partitions 1
+      kafka-topics --bootstrap-server kafka0:29092 --create --if-not-exists --topic MsrdStocks.public.stock_records --replication-factor 1 --partitions 1
+
+      echo -e 'Successfully created the following topics:'
+      kafka-topics --bootstrap-server kafka0:29092 --list
+      "
+    depends_on:
+      kafka0:
+        condition: service_healthy
+    logging:
+      options:
+        max-size: "12m"
+        max-file: "5"
+      driver: json-file
+        
+  mssql:
+    image: "mcr.microsoft.com/mssql/server:2019-CU18-ubuntu-20.04"
+    environment:
+      - ACCEPT_EULA=Y
+      - SA_PASSWORD=P@ssw0rd!
+    volumes:
+      - mssql-volume:/var/opt/mssql
+    restart: always
+    healthcheck:
+      test: /opt/mssql-tools/bin/sqlcmd -S localhost -U sa -P "$$SA_PASSWORD" -Q "SELECT 1" || exit 1
+      interval: 5s
+      timeout: 3s
+      retries: 5
+      start_period: 30s
+    logging:
+      options:
+        max-size: "12m"
+        max-file: "5"
+      driver: json-file
+      
+  postgres:
+    image: debezium/postgres:15-alpine
+    hostname: msrdstocks-db
+    environment:
+      POSTGRES_PASSWORD: "P@ssw0rd!"
+      POSTGRES_USER: "sa"
+      POSTGRES_DB: "MsrdStocks"
+    volumes:
+    - postgres-volume:/var/lib/postgresql/data
+    restart: always
+    command:
+      - "postgres"
+      - "-c"
+      - "wal_level=logical"
+    healthcheck:
+      test: pg_isready -U sa -d MsrdStocks
+      interval: 5s
+      timeout: 3s
+      retries: 3
+      start_period: 30s
+    logging:
+      options:
+        max-size: "12m"
+        max-file: "5"
+      driver: json-file
+      
+  sqlpad:
+    image: sqlpad/sqlpad:6.11
+    profiles: 
+      - tools
+    hostname: 'sqlpad'
+    ports:
+      - "8082:3000"
+    environment:
+      SQLPAD_AUTH_DISABLED: 1
+      SQLPAD_APP_LOG_LEVEL: info
+      SQLPAD_WEB_LOG_LEVEL: warn
+      SQLPAD_CONNECTIONS__msrdidentitydb__name: MSRD Identity database
+      SQLPAD_CONNECTIONS__msrdidentitydb__driver: sqlserver
+      SQLPAD_CONNECTIONS__msrdidentitydb__host: mssql
+      SQLPAD_CONNECTIONS__msrdidentitydb__database: MsrdAuth
+      SQLPAD_CONNECTIONS__msrdidentitydb__username: sa
+      SQLPAD_CONNECTIONS__msrdidentitydb__password: P@ssw0rd!
+      SQLPAD_CONNECTIONS__msrdstocksdb__name: MSRD Stocks database
+      SQLPAD_CONNECTIONS__msrdstocksdb__driver: postgres
+      SQLPAD_CONNECTIONS__msrdstocksdb__host: postgres
+      SQLPAD_CONNECTIONS__msrdstocksdb__database: MsrdStocks
+      SQLPAD_CONNECTIONS__msrdstocksdb__username: sa
+      SQLPAD_CONNECTIONS__msrdstocksdb__password: P@ssw0rd!
+    volumes:
+      - sqlpad-volume:/var/lib/sqlpad
+    logging:
+      options:
+        max-size: "12m"
+        max-file: "5"
+      driver: json-file
+
+  mongo:
+    image: mongo:5
+    environment:
+        MONGO_INITDB_DATABASE: MsrdProducts
+    volumes:
+      - mongo-volume:/data/db
+    command: ["--replSet", "rs0", "--bind_ip_all", "--port", "27017"]
+    healthcheck:
+      test: test $$(echo "rs.initiate({_id:'rs0',members:[{_id:0,host:\"mongo:27017\"}]}).ok || rs.status().ok" | mongo --port 27017 --quiet) -eq 1
+      interval: 10s
+      start_period: 30s
+    restart: always
+    logging:
+      options:
+        max-size: "12m"
+        max-file: "5"
+      driver: json-file
+
+  mongo-express:
+    image: mongo-express
+    profiles: 
+      - tools
+    ports:
+      - 8081:8081
+    environment:
+      ME_CONFIG_MONGODB_ADMINUSERNAME: root
+      ME_CONFIG_MONGODB_ADMINPASSWORD: password
+      ME_CONFIG_MONGODB_URL: mongodb://mongo:27017/
+    depends_on:
+      mongo:
+        condition: service_healthy
+    logging:
+      options:
+        max-size: "12m"
+        max-file: "5"
+      driver: json-file
+
+  kafka-ui:
+    image: provectuslabs/kafka-ui:latest
+    profiles: 
+      - tools
+    ports:
+      - 8083:8080
+    depends_on:
+      - kafka0
+      - schemaregistry0
+      - kafka-connect0
+    environment:
+      KAFKA_CLUSTERS_0_NAME: local
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka0:29092
+      KAFKA_CLUSTERS_0_METRICS_PORT: 9997
+      KAFKA_CLUSTERS_0_SCHEMAREGISTRY: http://schemaregistry0:8085
+      KAFKA_CLUSTERS_0_KAFKACONNECT_0_NAME: first
+      KAFKA_CLUSTERS_0_KAFKACONNECT_0_ADDRESS: http://kafka-connect0:8083
+    logging:
+      options:
+        max-size: "12m"
+        max-file: "5"
+      driver: json-file
+
+  kafka0:
+    image: confluentinc/cp-kafka:7.2.1
+    restart: always
+    volumes:
+      - kafka0-data-volume:/var/lib/kafka/data
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: 'zookeeper:2181'
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: 'PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT'
+      KAFKA_LISTENERS: 'PLAINTEXT://kafka0:29092,PLAINTEXT_HOST://0.0.0.0:9092'
+      KAFKA_ADVERTISED_LISTENERS: 'PLAINTEXT://kafka0:29092,PLAINTEXT_HOST://localhost:9092'
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_JMX_PORT: 9997
+      KAFKA_JMX_HOSTNAME: localhost
+      KAFKA_JMX_OPTS: -Dcom.sun.management.jmxremote -Dcom.sun.management.jmxremote.authenticate=false -Dcom.sun.management.jmxremote.ssl=false -Djava.rmi.server.hostname=kafka0 -Dcom.sun.management.jmxremote.rmi.port=9997
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      KAFKA_INTER_BROKER_LISTENER_NAME: 'PLAINTEXT'
+    healthcheck:
+      test: nc -z kafka0 29092 || exit -1
+      start_period: 15s
+      interval: 5s
+      timeout: 10s
+      retries: 10
+    depends_on:
+      zookeeper:
+        condition: service_healthy
+    logging:
+      options:
+        max-size: "12m"
+        max-file: "5"
+      driver: json-file
+
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.2.1
+    restart: always
+    volumes:
+      - zookeeper-data-volume:/var/lib/zookeeper/data
+      - zookeeper-log-volume:/var/lib/zookeeper/log
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    healthcheck:
+      test: nc -z localhost 2181 || exit -1
+      start_period: 15s
+      interval: 5s
+      timeout: 10s
+      retries: 10
+    logging:
+      options:
+        max-size: "12m"
+        max-file: "5"
+      driver: json-file
+
+  schemaregistry0:
+    image: confluentinc/cp-schema-registry:7.2.1
+    restart: always
+    environment:
+      SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS: PLAINTEXT://kafka0:29092
+      SCHEMA_REGISTRY_KAFKASTORE_SECURITY_PROTOCOL: PLAINTEXT
+      SCHEMA_REGISTRY_HOST_NAME: schemaregistry0
+      SCHEMA_REGISTRY_LISTENERS: http://schemaregistry0:8085
+
+      SCHEMA_REGISTRY_SCHEMA_REGISTRY_INTER_INSTANCE_PROTOCOL: "http"
+      SCHEMA_REGISTRY_LOG4J_ROOT_LOGLEVEL: INFO
+      SCHEMA_REGISTRY_KAFKASTORE_TOPIC: _schemas
+    healthcheck:
+      test: nc -z schemaregistry0 8085 || exit -1
+      start_period: 15s
+      interval: 5s
+      timeout: 10s
+      retries: 10
+    depends_on:
+      kafka0:
+        condition: service_healthy
+    logging:
+      options:
+        max-size: "12m"
+        max-file: "5"
+      driver: json-file
+
+  kafka-connect0:
+    build:
+      context: ./Kafka/kafka-connect
+      args:
+        image: confluentinc/cp-kafka-connect:6.0.1
+    restart: always
+    volumes:
+      - kafka-connect0-data-volume:/var/lib/kafka/data
+    environment:
+      CONNECT_BOOTSTRAP_SERVERS: kafka0:29092
+      CONNECT_GROUP_ID: compose-connect-group
+      CONNECT_CONFIG_STORAGE_TOPIC: _connect_configs
+      CONNECT_CONFIG_STORAGE_REPLICATION_FACTOR: 1
+      CONNECT_OFFSET_STORAGE_TOPIC: _connect_offset
+      CONNECT_OFFSET_STORAGE_REPLICATION_FACTOR: 1
+      CONNECT_STATUS_STORAGE_TOPIC: _connect_status
+      CONNECT_STATUS_STORAGE_REPLICATION_FACTOR: 1
+      CONNECT_KEY_CONVERTER: org.apache.kafka.connect.storage.StringConverter
+      CONNECT_KEY_CONVERTER_SCHEMA_REGISTRY_URL: http://schemaregistry0:8085
+      CONNECT_VALUE_CONVERTER: org.apache.kafka.connect.storage.StringConverter
+      CONNECT_VALUE_CONVERTER_SCHEMA_REGISTRY_URL: http://schemaregistry0:8085
+      CONNECT_INTERNAL_KEY_CONVERTER: org.apache.kafka.connect.json.JsonConverter
+      CONNECT_INTERNAL_VALUE_CONVERTER: org.apache.kafka.connect.json.JsonConverter
+      CONNECT_SSL_ENDPOINT_IDENTIFICATION_ALGORITHM: http
+      CONNECT_REST_ADVERTISED_HOST_NAME: kafka-connect0
+      CONNECT_REST_PORT: 8083
+      CONNECT_PLUGIN_PATH: "/usr/share/java,/usr/share/confluent-hub-components"
+      CONNECT_ZOOKEEPER_CONNECT: 'zookeeper:2181'
+    healthcheck:
+      test: /etc/confluent/docker/healthcheck.sh
+      start_period: 15s
+      interval: 5s
+      timeout: 10s
+      retries: 10
+    depends_on:
+      kafka0:
+        condition: service_healthy
+      schemaregistry0:
+        condition: service_healthy
+    logging:
+      options:
+        max-size: "12m"
+        max-file: "5"
+      driver: json-file
+      
+  meilisearch:
+    image: "getmeili/meilisearch:v0.29"
+    environment:
+      - MEILI_NO_ANALYTICS=1
+      - MEILI_ENV=development
+      - MEILI_LOG_LEVEL
+      - MEILI_DB_PATH=/meili_data/data.ms
+    volumes:
+      - meili-volume:/meili_data
+    restart: unless-stopped
+    healthcheck:
+      test: curl --fail http://localhost:7700/health || exit 1
+      interval: 5s
+      timeout: 3s
+      retries: 60
+    logging:
+      options:
+        max-size: "12m"
+        max-file: "5"
+      driver: json-file
+      
+volumes:
+  mssql-volume:
+  postgres-volume:
+  sqlpad-volume:
+  mongo-volume:
+  kafka0-data-volume:
+  zookeeper-data-volume:
+  zookeeper-log-volume:
+  kafka-connect0-data-volume:
+  meili-volume:
